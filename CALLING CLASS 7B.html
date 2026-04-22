@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ER0R QR</title>
+
+<style>
+body{
+  font-family:sans-serif;
+  text-align:center;
+  background:#000;
+  color:#00ffcc;
+}
+button{
+  padding:12px;
+  margin:5px;
+  border:none;
+  border-radius:10px;
+  background:#00ffcc;
+  color:#000;
+}
+video{
+  width:95%;
+  margin-top:10px;
+  border-radius:10px;
+  background:black;
+}
+canvas{
+  margin-top:10px;
+}
+#status{margin-top:10px}
+</style>
+</head>
+<body>
+
+<h2>ER0R QR CONNECT 🧑‍💻</h2>
+
+<div id="status">Status: Siap</div>
+
+<button onclick="createRoom()">Buat QR</button>
+<button onclick="scanQR()">Scan QR</button><br>
+
+<button onclick="shareScreen()">Share Layar</button>
+<button onclick="shareCam()">Kamera</button>
+
+<br>
+<canvas id="qr"></canvas>
+<video id="video" autoplay playsinline></video>
+
+<script src="https://cdn.jsdelivr.net/npm/simple-peer@9/simplepeer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@8/firebase-app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@8/firebase-database.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+
+<script>
+// firebase
+firebase.initializeApp({
+  apiKey:"demo",
+  databaseURL:"https://webrtc-demo-default-rtdb.firebaseio.com"
+});
+
+let db = firebase.database();
+let peer;
+let room = "";
+let video = document.getElementById("video");
+let status = document.getElementById("status");
+
+// 🔥 buat QR
+function createRoom(){
+  room = "room-" + Math.random().toString(36).substr(2,6);
+  QRCode.toCanvas(document.getElementById("qr"), room);
+  start(true);
+  status.innerText = "Status: QR dibuat, tunggu scan...";
+}
+
+// 🔥 scan QR
+function scanQR(){
+  let input = prompt("Tempel kode dari QR:");
+  if(!input) return;
+  room = input;
+  start(false);
+}
+
+// 🔥 start koneksi
+function start(isHost){
+  peer = new SimplePeer({initiator:isHost,trickle:false});
+
+  peer.on("signal", d=>{
+    db.ref("qr/"+room).set(JSON.stringify(d));
+  });
+
+  db.ref("qr/"+room).on("value", s=>{
+    if(s.val()){
+      try{ peer.signal(JSON.parse(s.val())); }
+      catch(e){}
+    }
+  });
+
+  peer.on("connect", ()=>{
+    status.innerText = "Status: Terhubung ✅";
+  });
+
+  peer.on("stream", s=>{
+    video.srcObject = s;
+  });
+}
+
+// 🔥 share layar
+async function shareScreen(){
+  let s = await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});
+  peer.addStream(s);
+}
+
+// 🔥 kamera
+async function shareCam(){
+  let s = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
+  peer.addStream(s);
+}
+</script>
+
+</body>
+</html>
